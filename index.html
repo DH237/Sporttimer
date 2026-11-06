@@ -1,0 +1,515 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<meta name="theme-color" content="#262626">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Chrono">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<title>Chrono</title>
+<style>
+:root{
+  --bg:#262626;--bg2:#1e1e1e;--row:#2a2a2a;--line:#3a3a3a;--muted:#8a8a8a;
+  --prepare:#FCFC3E;--work:#9BFF45;--rest:#F2392B;--rounds:#3BAEE8;--cool:#3BAEE8;
+  --font:"Avenir Next Condensed","Roboto Condensed","sans-serif-condensed","Arial Narrow","Helvetica Neue",sans-serif;
+  --sat:env(safe-area-inset-top);--sab:env(safe-area-inset-bottom);
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;background:var(--bg);color:#fff;font-family:var(--font);font-weight:700;overflow:hidden;overscroll-behavior:none;-webkit-user-select:none;user-select:none;touch-action:manipulation}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
+.app{display:flex;flex-direction:column;height:100vh;height:100dvh}
+.screen{flex:1;display:none;flex-direction:column;min-height:0;--accent:var(--prepare)}
+.screen.active{display:flex}
+.num{font-variant-numeric:tabular-nums;white-space:nowrap}
+
+/* Header */
+.hdr{position:relative;z-index:2;padding:calc(var(--sat) + 10px) 16px 8px;text-align:center;color:var(--accent);background:var(--bg);flex:none}
+.hdr .title{font-size:30px;text-transform:uppercase;line-height:1.1}
+.hdr .total{font-size:46px;line-height:1}
+.icon-btn{position:absolute;width:52px;height:52px;display:grid;place-items:center;color:var(--accent)}
+.icon-btn svg{width:34px;height:34px}
+.hdr .left{left:10px;bottom:6px}
+.hdr .right{right:10px;bottom:6px}
+.reset{position:absolute;right:70px;bottom:-42px;width:80px;height:80px;border-radius:50%;background:var(--bg);border:5px solid var(--accent);display:grid;place-items:center;color:var(--accent)}
+.reset svg{width:36px;height:36px}
+
+/* Current / next */
+.cur{flex:1;min-height:0;display:flex;flex-direction:column;align-items:center;justify-content:center;color:#000;background:var(--accent);transition:background .2s;overflow:hidden}
+.cur .name{font-size:min(20vw,11dvh);line-height:1;text-transform:uppercase;white-space:nowrap}
+.cur .time{font-size:min(41vw,27dvh);line-height:.95;letter-spacing:-.02em}
+.cur .time.long{font-size:min(28vw,19dvh)}
+.nxt{flex:none;padding:10px 0;text-align:center;color:#000;background:var(--work);transition:background .2s}
+.nxt .name{font-size:min(9vw,4.6dvh);text-transform:uppercase;line-height:1}
+.nxt .time{font-size:min(21vw,10dvh);line-height:1}
+
+/* Controls */
+.ctrl{flex:none;display:grid;grid-template-columns:1fr auto 1fr;align-items:center;padding:14px 12px 10px}
+.rl{text-align:center}
+.rl .n{font-size:min(22vw,10dvh);color:var(--rounds);line-height:1}
+.rl .l{font-size:min(6vw,3.2dvh);text-transform:uppercase;white-space:nowrap}
+.pwrap{display:flex;flex-direction:column;align-items:center;gap:6px}
+.play{position:relative;width:min(28vw,13dvh);height:min(28vw,13dvh);border-radius:50%;background:var(--accent);color:#262626;display:grid;place-items:center;transition:transform .1s}
+.play:active{transform:scale(.95)}
+.play::after{content:"";position:absolute;inset:9%;border-radius:50%;border:3px solid #262626}
+.play svg{width:38%;height:38%}
+.plabel{font-size:min(9vw,4.4dvh);color:var(--accent);text-transform:uppercase;line-height:1}
+.side{justify-self:center;font-size:min(7vw,3.6dvh);text-transform:uppercase;color:#ddd;padding:12px 18px;border-radius:30px;background:#333}
+.side:disabled{opacity:.3}
+
+/* Tabs */
+.tabs{flex:none;display:flex;gap:4px;padding:8px 8px calc(var(--sab) + 6px);background:var(--bg2)}
+.tab{flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;padding:10px 0;border-radius:34px;font-size:15px;text-transform:uppercase;color:#ddd}
+.tab.active{background:#000;color:#fff}
+.tab svg{width:30px;height:30px}
+
+/* Stopwatch */
+.swtime{flex:none;background:var(--prepare);color:#000;text-align:center;font-size:min(24vw,15dvh);line-height:1;padding:24px 0}
+.laps{flex:1;overflow:auto;-webkit-overflow-scrolling:touch}
+.lap{display:flex;justify-content:space-between;padding:14px 22px;border-bottom:1px solid var(--line);font-size:24px}
+.lap span:first-child{color:var(--muted)}
+.lap.best span:nth-child(2){color:var(--work)}
+.lap.worst span:nth-child(2){color:var(--rest)}
+
+/* More */
+.scroll{flex:1;overflow:auto;-webkit-overflow-scrolling:touch;padding-bottom:20px}
+.sec{padding:14px;text-align:center;color:#666;font-size:24px;background:var(--row);margin-top:20px;text-transform:uppercase}
+.item{display:flex;align-items:center;gap:12px;margin:0 16px;padding:16px 0;border-bottom:1px solid var(--line)}
+.item .txt{flex:1;min-width:0}
+.item .t1{font-size:24px;text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.item .t2{font-size:16px;color:var(--muted);text-transform:uppercase}
+.pill{padding:8px 16px;border-radius:20px;background:#3a3a3a;font-size:18px;text-transform:uppercase}
+.pill.go{background:var(--work);color:#000}
+.pill.del{background:none;color:var(--rest);padding:8px}
+.empty{padding:20px;text-align:center;color:var(--muted);font-size:18px}
+.sw{position:relative;width:58px;height:34px;flex:none}
+.sw input{opacity:0;position:absolute;inset:0;z-index:1}
+.sw span{position:absolute;inset:0;border-radius:20px;background:#555;transition:.2s}
+.sw span::after{content:"";position:absolute;top:3px;left:3px;width:28px;height:28px;border-radius:50%;background:#fff;transition:.2s}
+.sw input:checked+span{background:var(--work)}
+.sw input:checked+span::after{transform:translateX(24px)}
+.help{margin:16px;color:var(--muted);font-size:17px;line-height:1.35;font-weight:500}
+
+/* Editor sheet */
+.sheet{position:fixed;inset:0;z-index:10;background:var(--bg2);display:flex;flex-direction:column;transform:translateY(100%);transition:transform .25s ease;visibility:hidden}
+.sheet.open{transform:none;visibility:visible}
+.sheet-hdr{flex:none;display:flex;justify-content:space-between;align-items:center;padding:calc(var(--sat) + 14px) 22px 16px;font-size:28px;text-transform:uppercase;border-bottom:1px solid var(--line);background:var(--bg)}
+.sheet-hdr .cancel{color:var(--muted)}
+.sheet-hdr .ok{color:var(--work)}
+.row{display:flex;align-items:center;gap:16px;width:calc(100% - 32px);margin:0 16px;padding:18px 0;border-bottom:1px solid var(--line);text-align:left}
+.dot{width:24px;height:24px;border-radius:50%;flex:none}
+.row .txt{flex:1;min-width:0}
+.row .t1{font-size:26px;text-transform:uppercase}
+.row .t2{font-size:16px;color:var(--muted);text-transform:uppercase}
+.row .val{font-size:46px;line-height:1}
+.chev{color:#777;font-size:34px;font-weight:400}
+.totalline{text-align:center;color:var(--muted);font-size:20px;margin-top:16px;text-transform:uppercase}
+.wide{display:flex;gap:12px;justify-content:center;align-items:center;margin:24px 16px;padding:20px;border-radius:22px;background:#474747;font-size:26px;text-transform:uppercase;width:calc(100% - 32px)}
+.wide svg{width:34px;height:34px}
+
+/* Picker */
+.overlay{position:fixed;inset:0;z-index:20;background:rgba(0,0,0,.6);display:none;align-items:flex-end}
+.overlay.open{display:flex}
+.box{width:100%;background:var(--bg);border-radius:22px 22px 0 0;padding:20px 20px calc(var(--sab) + 20px)}
+.box h3{font-size:28px;text-transform:uppercase;text-align:center;margin-bottom:16px}
+.wheels{display:flex;gap:12px;justify-content:center;align-items:center}
+.wheels label{display:flex;flex-direction:column;align-items:center;gap:6px;color:var(--muted);font-size:16px;text-transform:uppercase}
+.wheels select{font:inherit;font-size:44px;color:#fff;background:#333;border:0;border-radius:14px;padding:6px 18px;-webkit-appearance:none;appearance:none;text-align:center;text-align-last:center}
+.wheels .colon{font-size:44px;padding-top:20px}
+.box .btns{display:flex;gap:12px;margin-top:20px}
+.box .btns button{flex:1;padding:16px;border-radius:16px;font-size:24px;text-transform:uppercase;background:#3a3a3a}
+.box .btns .ok{background:var(--work);color:#000}
+
+.dlg-input{width:100%;font:inherit;font-size:26px;color:#fff;background:#333;border:0;border-radius:14px;padding:14px 16px;outline:none;-webkit-user-select:text;user-select:text}
+.toast{position:fixed;left:50%;bottom:calc(var(--sab) + 110px);transform:translateX(-50%);background:#000;color:#fff;padding:12px 20px;border-radius:20px;font-size:20px;opacity:0;transition:opacity .2s;pointer-events:none;z-index:30;text-transform:uppercase}
+.toast.show{opacity:1}
+</style>
+</head>
+<body>
+<div class="app">
+  <section class="screen" id="scr-tabata"></section>
+  <section class="screen" id="scr-rounds"></section>
+
+  <section class="screen" id="scr-stopwatch">
+    <header class="hdr"><div class="title">Stopwatch</div><div class="total num" style="visibility:hidden">0</div></header>
+    <div class="swtime num" id="sw-time">00:00.00</div>
+    <div class="laps" id="sw-laps"></div>
+    <div class="ctrl">
+      <button class="side" id="sw-left" disabled>Lap</button>
+      <div class="pwrap"><button class="play" id="sw-play"></button><div class="plabel" id="sw-label">Start</div></div>
+      <div></div>
+    </div>
+  </section>
+
+  <section class="screen" id="scr-more">
+    <header class="hdr"><div class="title">More</div></header>
+    <div class="scroll" id="more"></div>
+  </section>
+
+  <nav class="tabs" id="tabs">
+    <button class="tab" data-tab="tabata"><span data-i="tabata"></span>Tabata</button>
+    <button class="tab" data-tab="rounds"><span data-i="rounds"></span>Rounds</button>
+    <button class="tab" data-tab="stopwatch"><span data-i="stopwatch"></span>Stopwatch</button>
+    <button class="tab" data-tab="more"><span data-i="more"></span>More</button>
+  </nav>
+</div>
+
+<!-- Editor -->
+<div class="sheet" id="editor">
+  <div class="sheet-hdr"><button class="cancel" id="ed-cancel">Cancel</button><span id="ed-title">Rounds</span><button class="ok" id="ed-save">Save</button></div>
+  <div class="scroll">
+    <div class="sec" style="margin-top:0">Intervals</div>
+    <div id="ed-rows"></div>
+    <div class="totalline num" id="ed-total"></div>
+    <button class="wide" id="ed-add"><span data-i="tabata"></span>Add new timer</button>
+  </div>
+</div>
+
+<!-- Picker -->
+<div class="overlay" id="picker">
+  <div class="box">
+    <h3 id="pk-title"></h3>
+    <div class="wheels" id="pk-wheels"></div>
+    <div class="btns"><button id="pk-cancel">Cancel</button><button class="ok" id="pk-ok">OK</button></div>
+  </div>
+</div>
+
+<div class="overlay" id="dlg">
+  <div class="box">
+    <h3 id="dlg-title"></h3>
+    <input id="dlg-input" class="dlg-input" maxlength="40" autocomplete="off">
+    <div class="btns"><button id="dlg-cancel">Cancel</button><button class="ok" id="dlg-ok">OK</button></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+'use strict';
+/* ---------- Utils ---------- */
+function clone(o){return JSON.parse(JSON.stringify(o))}
+const $=s=>document.querySelector(s);
+const pad=n=>String(n).padStart(2,'0');
+function fmt(sec){sec=Math.max(0,sec|0);const h=Math.floor(sec/3600),m=Math.floor(sec%3600/60),s=sec%60;return h?`${h}:${pad(m)}:${pad(s)}`:`${pad(m)}:${pad(s)}`}
+function fmtShort(sec){return sec<60?':'+pad(sec):fmt(sec)}
+function fmtSW(ms){const cs=Math.floor(ms/10)%100,s=Math.floor(ms/1000);const h=Math.floor(s/3600),m=Math.floor(s%3600/60);return (h?h+':':'')+pad(m)+':'+pad(s%60)+'.'+pad(cs)}
+
+const ICON={
+  gear:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>',
+  reset:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="21 3 21 9 15 9"/><path d="M19.5 14.5A8 8 0 1 1 17.7 6.3L21 9"/></svg>',
+  sound:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>',
+  mute:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/></svg>',
+  play:'<svg viewBox="0 0 24 24"><path fill="currentColor" d="M7 4.5v15l12.5-7.5z"/></svg>',
+  pause:'<svg viewBox="0 0 24 24"><path fill="currentColor" d="M6 4h4.5v16H6zM13.5 4H18v16h-4.5z"/></svg>',
+  tabata:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="12" cy="13.5" r="8"/><path d="M12 9.5v4.5M10 2.5h4M12 2.5v3M18.5 6.5l1.6-1.6"/><circle cx="12" cy="14" r="1" fill="currentColor"/></svg>',
+  rounds:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 12L8 8"/></svg>',
+  stopwatch:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="1.1" fill="currentColor"/></svg>',
+  more:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M12 3a9 9 0 1 1-6.4 2.7"/></svg>'
+};
+document.querySelectorAll('[data-i]').forEach(n=>n.innerHTML=ICON[n.dataset.i]);
+
+/* ---------- Store ---------- */
+const KEY='chrono.v1';
+const DEFAULTS={
+  tabata:{prepare:10,work:20,rest:10,rounds:8,cooldown:0},
+  rounds:{prepare:5,work:90,rest:0,rounds:6,cooldown:0}
+};
+const DEF_SETTINGS={sound:true,countdown:true,vibrate:true,wake:true};
+function load(){
+  try{const s=JSON.parse(localStorage.getItem(KEY));
+    if(s&&s.configs)return{configs:{...clone(DEFAULTS),...s.configs},presets:s.presets||[],settings:{...DEF_SETTINGS,...(s.settings||{})},tab:s.tab||'rounds'};
+  }catch(e){}
+  return{configs:clone(DEFAULTS),presets:[],settings:{...DEF_SETTINGS},tab:'rounds'};
+}
+let store=load();
+function save(){try{localStorage.setItem(KEY,JSON.stringify(store))}catch(e){}}
+
+/* ---------- Audio / vibration / wake lock ---------- */
+let actx=null;
+function ac(){
+  if(!actx){const C=window.AudioContext||window.webkitAudioContext;if(!C)return null;actx=new C();}
+  if(actx.state==='suspended')actx.resume();
+  return actx;
+}
+function unlockAudio(){const a=ac();if(!a)return;const o=a.createOscillator(),g=a.createGain();g.gain.value=0;o.connect(g).connect(a.destination);o.start();o.stop(a.currentTime+.01)}
+function beep(freq,dur=.15,vol=.5,delay=0){
+  if(!store.settings.sound)return;const a=ac();if(!a)return;
+  const t=a.currentTime+delay,o=a.createOscillator(),g=a.createGain();
+  o.type='square';o.frequency.value=freq;
+  g.gain.setValueAtTime(0.0001,t);g.gain.exponentialRampToValueAtTime(vol*.35,t+.01);g.gain.exponentialRampToValueAtTime(0.0001,t+dur);
+  o.connect(g).connect(a.destination);o.start(t);o.stop(t+dur+.02);
+}
+function vib(p){if(store.settings.vibrate&&navigator.vibrate)navigator.vibrate(p)}
+function phaseCue(type){
+  if(type==='work'){beep(1046,.55);vib(400)}
+  else if(type==='rest'){beep(523,.55);vib([150,80,150])}
+  else if(type==='cooldown'){beep(784,.55);vib(300)}
+  else if(type==='done'){beep(1046,.2,.5,0);beep(1046,.2,.5,.3);beep(1318,.7,.5,.6);vib([200,100,200,100,500])}
+}
+let wl=null;
+async function wake(on){
+  try{
+    if(on&&store.settings.wake&&'wakeLock' in navigator&&!wl){wl=await navigator.wakeLock.request('screen');wl.addEventListener('release',()=>{wl=null})}
+    else if(!on&&wl){const w=wl;wl=null;await w.release()}
+  }catch(e){}
+}
+function anyRunning(){return Object.values(engines).some(e=>e.state==='running')||sw.running}
+function wakeSync(){wake(anyRunning())}
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'){if(anyRunning())wake(true);tickAll();renderActive()}});
+
+/* ---------- Interval engine (timestamp based: no drift) ---------- */
+const COLORS={prepare:'var(--prepare)',work:'var(--work)',rest:'var(--rest)',cooldown:'var(--cool)',done:'var(--rounds)'};
+const NAMES={prepare:'Prepare',work:'Work',rest:'Rest',cooldown:'Cooldown',done:'Done'};
+class Engine{
+  constructor(mode){this.mode=mode;this.reset()}
+  get cfg(){return store.configs[this.mode]}
+  build(){
+    const c=this.cfg,p=[];
+    if(c.prepare>0)p.push({type:'prepare',d:c.prepare});
+    for(let r=1;r<=c.rounds;r++){
+      p.push({type:'work',d:c.work,round:r});
+      if(c.rest>0&&r<c.rounds)p.push({type:'rest',d:c.rest,round:r});
+    }
+    if(c.cooldown>0)p.push({type:'cooldown',d:c.cooldown});
+    return p;
+  }
+  reset(){
+    this.phases=this.build();this.total=this.phases.reduce((s,x)=>s+x.d*1000,0);
+    this.acc=0;this.startedAt=null;this.state='idle';this.lastIdx=null;this.lastBeep=null;
+  }
+  elapsed(){return this.acc+(this.startedAt?Date.now()-this.startedAt:0)}
+  view(){
+    const ph=this.phases,el=this.elapsed();
+    if(this.state==='done'||el>=this.total)return{done:true,i:ph.length,cur:{type:'done'},curLeft:0,next:null,totalLeft:0,roundsLeft:0};
+    let acc=0,i=0;
+    while(i<ph.length-1&&el>=acc+ph[i].d*1000){acc+=ph[i].d*1000;i++}
+    let rl=0;for(let j=i;j<ph.length;j++)if(ph[j].type==='work')rl++;
+    return{done:false,i,cur:ph[i],curLeft:Math.ceil((acc+ph[i].d*1000-el)/1000),next:ph[i+1]||null,totalLeft:Math.ceil((this.total-el)/1000),roundsLeft:rl};
+  }
+  start(){
+    if(this.state==='done')this.reset();
+    const fresh=this.state==='idle';
+    this.startedAt=Date.now();this.state='running';
+    this.lastIdx=this.view().i;
+    if(fresh)beep(880,.15);
+    wake(true);
+  }
+  pause(){this.acc+=Date.now()-this.startedAt;this.startedAt=null;this.state='paused';wakeSync()}
+  toggle(){this.state==='running'?this.pause():this.start()}
+  finish(){this.acc=this.total;this.startedAt=null;this.state='done';phaseCue('done');wakeSync()}
+  tick(){
+    if(this.state!=='running')return;
+    const v=this.view();
+    if(v.done){this.finish();return}
+    if(v.i!==this.lastIdx){this.lastIdx=v.i;this.lastBeep=null;phaseCue(v.cur.type)}
+    if(store.settings.countdown&&v.curLeft>=1&&v.curLeft<=3&&v.curLeft!==v.cur.d){
+      const k=v.i+':'+v.curLeft;
+      if(k!==this.lastBeep){this.lastBeep=k;beep(660,.12,.4)}
+    }
+  }
+}
+const engines={tabata:new Engine('tabata'),rounds:new Engine('rounds')};
+
+/* ---------- Interval screens ---------- */
+const refs={};
+function intervalHTML(mode){return `
+<header class="hdr">
+  <button class="icon-btn left" data-act="edit" aria-label="Settings">${ICON.gear}</button>
+  <div class="title">${mode==='tabata'?'Tabata':'Rounds'}</div>
+  <div class="total num" data-r="total">00:00</div>
+  <button class="reset" data-act="reset" aria-label="Reset">${ICON.reset}</button>
+  <button class="icon-btn right" data-act="sound" data-r="snd" aria-label="Sound"></button>
+</header>
+<div class="cur" data-act="toggle" data-r="cur"><div class="name" data-r="cname"></div><div class="time num" data-r="ctime"></div></div>
+<div class="nxt" data-r="nxt"><div class="name" data-r="nname"></div><div class="time num" data-r="ntime"></div></div>
+<div class="ctrl">
+  <div class="rl"><div class="n num" data-r="rleft"></div><div class="l">Rounds left</div></div>
+  <div class="pwrap"><button class="play" data-act="toggle" data-r="pbtn"></button><div class="plabel" data-r="plabel"></div></div>
+  <div></div>
+</div>`}
+for(const m of Object.keys(engines)){
+  const s=document.getElementById('scr-'+m);s.innerHTML=intervalHTML(m);
+  const r=refs[m]={scr:s,cache:{}};
+  s.querySelectorAll('[data-r]').forEach(n=>r[n.dataset.r]=n);
+  s.addEventListener('click',ev=>{const b=ev.target.closest('[data-act]');if(b)act(m,b.dataset.act)});
+}
+function act(m,a){
+  unlockAudio();const e=engines[m];
+  if(a==='toggle')e.toggle();
+  else if(a==='reset'){e.reset();wakeSync()}
+  else if(a==='edit')openEditor(m);
+  else if(a==='sound'){store.settings.sound=!store.settings.sound;save();syncSound();renderMore();toast(store.settings.sound?'Sound on':'Sound off')}
+  render(m);
+}
+function setTxt(r,key,val){if(r.cache[key]!==val){r.cache[key]=val;r[key].textContent=val}}
+function setProp(r,key,fn,val){const k='_'+key;if(r.cache[k]!==val){r.cache[k]=val;fn(val)}}
+function render(m){
+  const e=engines[m],r=refs[m],v=e.view();
+  setProp(r,'accent',c=>r.scr.style.setProperty('--accent',c),COLORS[v.cur.type]);
+  setTxt(r,'total',fmt(v.totalLeft));
+  setTxt(r,'cname',NAMES[v.cur.type]);
+  const ct=fmt(v.curLeft);r.ctime.classList.toggle('long',ct.length>5);if(r.cache.ctime!==ct){const L=r.cache.ctime&&r.cache.ctime.length;setTxt(r,'ctime',ct);if(L!==ct.length)fit(r.ctime)}
+  if(r.cache._cn!==v.cur.type){r.cache._cn=v.cur.type;fit(r.cname)}
+  if(v.done){
+    setProp(r,'nbg',c=>r.nxt.style.background=c,'#3a3a3a');r.nxt.style.color='#fff';
+    setTxt(r,'nname','Total');setTxt(r,'ntime',fmt(e.total/1000));
+  }else if(v.next){
+    setProp(r,'nbg',c=>r.nxt.style.background=c,COLORS[v.next.type]);r.nxt.style.color='#000';
+    setTxt(r,'nname',NAMES[v.next.type]);setTxt(r,'ntime',fmt(v.next.d));
+  }else{
+    setProp(r,'nbg',c=>r.nxt.style.background=c,'#3a3a3a');r.nxt.style.color='#fff';
+    setTxt(r,'nname','Next');setTxt(r,'ntime','Finish');
+  }
+  setTxt(r,'rleft',String(v.roundsLeft));
+  const running=e.state==='running';
+  setProp(r,'picon',x=>r.pbtn.innerHTML=x,running?ICON.pause:ICON.play);
+  setTxt(r,'plabel',running?'Pause':e.state==='paused'?'Resume':e.state==='done'?'Restart':'Start');
+}
+function fit(el){el.style.fontSize='';const w=el.parentElement.clientWidth*.96,s=el.scrollWidth;if(s>w){el.style.fontSize=(parseFloat(getComputedStyle(el).fontSize)*w/s)+'px'}}
+window.addEventListener('resize',()=>{for(const m in refs){fit(refs[m].ctime);fit(refs[m].cname)}});
+function syncSound(){for(const m in refs)refs[m].snd.innerHTML=store.settings.sound?ICON.sound:ICON.mute}
+
+/* ---------- Stopwatch ---------- */
+const sw={running:false,startedAt:0,acc:0,laps:[],elapsed(){return this.acc+(this.running?Date.now()-this.startedAt:0)}};
+const swEl={time:$('#sw-time'),left:$('#sw-left'),play:$('#sw-play'),label:$('#sw-label'),laps:$('#sw-laps')};
+swEl.play.addEventListener('click',()=>{
+  unlockAudio();
+  if(sw.running){sw.acc+=Date.now()-sw.startedAt;sw.running=false}
+  else{sw.startedAt=Date.now();sw.running=true}
+  wakeSync();renderSWControls();
+});
+swEl.left.addEventListener('click',()=>{
+  if(sw.running){const t=sw.elapsed(),prev=sw.laps.length?sw.laps[sw.laps.length-1].t:0;sw.laps.push({t,split:t-prev});beep(880,.08,.3)}
+  else{sw.acc=0;sw.laps=[]}
+  renderSWControls();renderLaps();renderSW();
+});
+function renderSW(){swEl.time.textContent=fmtSW(sw.elapsed())}
+function renderSWControls(){
+  swEl.play.innerHTML=sw.running?ICON.pause:ICON.play;
+  swEl.label.textContent=sw.running?'Pause':sw.acc?'Resume':'Start';
+  swEl.left.textContent=sw.running||!sw.acc?'Lap':'Reset';
+  swEl.left.disabled=!sw.running&&!sw.acc;
+}
+function renderLaps(){
+  const L=sw.laps;let best=-1,worst=-1;
+  if(L.length>2){const s=L.map(l=>l.split);best=s.indexOf(Math.min(...s));worst=s.indexOf(Math.max(...s))}
+  swEl.laps.innerHTML=L.map((l,i)=>`<div class="lap num${i===best?' best':i===worst?' worst':''}"><span>Lap ${i+1}</span><span>${fmtSW(l.split)}</span><span>${fmtSW(l.t)}</span></div>`).reverse().join('');
+}
+
+/* ---------- Editor ---------- */
+const FIELDS=[
+  {k:'prepare',n:'Prepare',d:'Countdown before you start',c:'var(--prepare)',t:'time'},
+  {k:'work',n:'Work',d:'Do exercises for this long',c:'var(--work)',t:'time'},
+  {k:'rest',n:'Rest',d:'Rest for this long',c:'var(--rest)',t:'time'},
+  {k:'rounds',n:'Rounds',d:'One round is work + rest',c:'var(--rounds)',t:'count'},
+  {k:'cooldown',n:'Cooldown',d:'Cooldown after workout',c:'var(--cool)',t:'time'}
+];
+let draft=null,draftMode=null;
+function totalOf(c){return c.prepare+c.rounds*c.work+Math.max(0,c.rounds-1)*c.rest+c.cooldown}
+function openEditor(m){draftMode=m;draft=clone(store.configs[m]);$('#ed-title').textContent=m==='tabata'?'Tabata':'Rounds';renderEditor();$('#editor').classList.add('open')}
+function closeEditor(){$('#editor').classList.remove('open')}
+function renderEditor(){
+  $('#ed-rows').innerHTML=FIELDS.map(f=>`<button class="row" data-k="${f.k}"><span class="dot" style="background:${f.c}"></span><span class="txt"><div class="t1">${f.n}</div><div class="t2">${f.d}</div></span><span class="val num">${f.t==='time'?fmtShort(draft[f.k]):draft[f.k]}</span><span class="chev">›</span></button>`).join('');
+  $('#ed-total').textContent='Total '+fmt(totalOf(draft));
+}
+$('#ed-rows').addEventListener('click',ev=>{const b=ev.target.closest('[data-k]');if(b)openPicker(b.dataset.k)});
+$('#ed-cancel').addEventListener('click',closeEditor);
+$('#ed-save').addEventListener('click',()=>{store.configs[draftMode]=draft;save();engines[draftMode].reset();wakeSync();render(draftMode);closeEditor()});
+$('#ed-add').addEventListener('click',async()=>{
+  const name=await dialog('Timer name',{input:'My timer',ok:'Save'});if(!name)return;
+  store.presets.push({id:Date.now(),name,mode:draftMode,cfg:clone(draft)});save();renderMore();toast('Timer saved');
+});
+
+/* ---------- Picker ---------- */
+let pkKey=null;
+const opts=(n,sel,from=0)=>Array.from({length:n-from},(_,i)=>`<option value="${i+from}"${i+from===sel?' selected':''}>${pad(i+from)}</option>`).join('');
+function openPicker(k){
+  pkKey=k;const f=FIELDS.find(x=>x.k===k),v=draft[k];
+  $('#pk-title').textContent=f.n;
+  $('#pk-wheels').innerHTML=f.t==='time'
+    ?`<label>Min<select id="pk-m">${opts(100,Math.floor(v/60))}</select></label><span class="colon">:</span><label>Sec<select id="pk-s">${opts(60,v%60)}</select></label>`
+    :`<label>Rounds<select id="pk-n">${opts(100,v,1)}</select></label>`;
+  $('#picker').classList.add('open');
+}
+$('#pk-cancel').addEventListener('click',()=>$('#picker').classList.remove('open'));
+$('#picker').addEventListener('click',ev=>{if(ev.target.id==='picker')$('#picker').classList.remove('open')});
+$('#pk-ok').addEventListener('click',()=>{
+  const f=FIELDS.find(x=>x.k===pkKey);
+  let v=f.t==='time'?(+$('#pk-m').value)*60+(+$('#pk-s').value):+$('#pk-n').value;
+  if(pkKey==='work'&&v<1)v=1;
+  draft[pkKey]=v;renderEditor();$('#picker').classList.remove('open');
+});
+
+/* ---------- More ---------- */
+const SETTINGS=[
+  {k:'sound',n:'Sounds',d:'Beep on each interval'},
+  {k:'countdown',n:'Countdown beeps',d:'3 · 2 · 1 before each change'},
+  {k:'vibrate',n:'Vibration',d:'Android only'},
+  {k:'wake',n:'Keep screen on',d:'While a timer runs'}
+];
+function summary(c){return `${fmtShort(c.prepare)} · ${c.rounds}× ${fmtShort(c.work)}${c.rest?' / '+fmtShort(c.rest):''}${c.cooldown?' · cd '+fmtShort(c.cooldown):''} · ${fmt(totalOf(c))}`}
+function esc(s){return s.replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+function renderMore(){
+  const P=store.presets;
+  $('#more').innerHTML=`
+  <div class="sec">Saved timers</div>
+  ${P.length?P.map(p=>`<div class="item"><div class="txt"><div class="t1">${esc(p.name)}</div><div class="t2 num">${p.mode} · ${summary(p.cfg)}</div></div><button class="pill go" data-load="${p.id}">Load</button><button class="pill del" data-del="${p.id}">✕</button></div>`).join('')
+    :'<div class="empty">No saved timers yet. Use “Add new timer” in the ⚙︎ editor.</div>'}
+  <div class="sec">Settings</div>
+  ${SETTINGS.map(s=>`<div class="item"><div class="txt"><div class="t1">${s.n}</div><div class="t2">${s.d}</div></div><label class="sw"><input type="checkbox" data-set="${s.k}"${store.settings[s.k]?' checked':''}><span></span></label></div>`).join('')}
+  <div class="item"><div class="txt"><div class="t1">Test sound</div></div><button class="pill" id="test-snd">Play</button></div>
+  <div class="item"><div class="txt"><div class="t1">Reset defaults</div><div class="t2">Tabata & Rounds settings</div></div><button class="pill" id="reset-def">Reset</button></div>
+  <div class="sec">Install</div>
+  <p class="help">iPhone: open in Safari → Share → “Add to Home Screen”. Android: Chrome menu → “Install app”. Works offline once installed. On iPhone, the silent switch mutes the beeps.</p>`;
+}
+$('#more').addEventListener('click',async ev=>{
+  const t=ev.target;
+  if(t.dataset.load){const p=store.presets.find(x=>x.id==t.dataset.load);if(!p)return;store.configs[p.mode]=clone(p.cfg);save();engines[p.mode].reset();wakeSync();render(p.mode);showTab(p.mode);toast(p.name+' loaded')}
+  else if(t.dataset.del){const p=store.presets.find(x=>x.id==t.dataset.del);if(p&&await dialog('Delete “'+p.name+'”?',{ok:'Delete'})){store.presets=store.presets.filter(x=>x!==p);save();renderMore()}}
+  else if(t.id==='test-snd'){unlockAudio();const s=store.settings.sound;store.settings.sound=true;beep(660,.12,.4);phaseCue('work');store.settings.sound=s}
+  else if(t.id==='reset-def'&&await dialog('Reset Tabata & Rounds to defaults?',{ok:'Reset'})){store.configs=clone(DEFAULTS);save();for(const m in engines){engines[m].reset();render(m)}wakeSync();toast('Defaults restored')}
+});
+$('#more').addEventListener('change',ev=>{const k=ev.target.dataset.set;if(!k)return;store.settings[k]=ev.target.checked;save();syncSound();if(k==='wake')wakeSync()});
+
+/* ---------- In-page dialogs (no prompt/confirm) ---------- */
+function dialog(title,{input=null,ok='OK'}={}){
+  return new Promise(res=>{
+    const o=$('#dlg'),i=$('#dlg-input');
+    $('#dlg-title').textContent=title;$('#dlg-ok').textContent=ok;
+    i.style.display=input===null?'none':'';i.value=input||'';
+    const done=v=>{o.classList.remove('open');$('#dlg-ok').onclick=$('#dlg-cancel').onclick=null;res(v)};
+    $('#dlg-ok').onclick=()=>done(input===null?true:i.value.trim());
+    $('#dlg-cancel').onclick=()=>done(input===null?false:null);
+    o.classList.add('open');if(input!==null)setTimeout(()=>{i.focus();i.select()},50);
+  });
+}
+$('#dlg-input').addEventListener('keydown',e=>{if(e.key==='Enter')$('#dlg-ok').click()});
+
+/* ---------- Tabs / toast / loop ---------- */
+function showTab(t){
+  store.tab=t;save();
+  document.querySelectorAll('.screen').forEach(s=>s.classList.toggle('active',s.id==='scr-'+t));
+  document.querySelectorAll('.tab').forEach(b=>b.classList.toggle('active',b.dataset.tab===t));
+  renderActive();
+  if(refs[t]){fit(refs[t].ctime);fit(refs[t].cname)}
+}
+$('#tabs').addEventListener('click',ev=>{const b=ev.target.closest('[data-tab]');if(b)showTab(b.dataset.tab)});
+let toastT;function toast(msg){const el=$('#toast');el.textContent=msg;el.classList.add('show');clearTimeout(toastT);toastT=setTimeout(()=>el.classList.remove('show'),1400)}
+
+function tickAll(){for(const m in engines)engines[m].tick()}
+function renderActive(){const t=store.tab;if(engines[t])render(t);else if(t==='stopwatch')renderSW()}
+function loop(){tickAll();renderActive();requestAnimationFrame(loop)}
+setInterval(tickAll,200); // keeps beeps going if rAF is throttled
+
+syncSound();renderMore();renderSWControls();for(const m in engines)render(m);
+showTab(['tabata','rounds','stopwatch','more'].includes(store.tab)?store.tab:'rounds');
+requestAnimationFrame(loop);
+
+if('serviceWorker' in navigator&&location.protocol.startsWith('http'))navigator.serviceWorker.register('sw.js').catch(()=>{});
+</script>
+</body>
+</html>
